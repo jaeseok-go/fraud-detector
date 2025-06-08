@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.1
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.1
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9092:9092"
+
+  redis:
+    image: redis:7.0
+    ports:
+      - "6379:6379"
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: fds_db
+      MYSQL_USER: fds_user
+      MYSQL_PASSWORD: fds_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  rule-service:
+    build:
+      context: ./rule-service
+      dockerfile: Dockerfile
+    depends_on:
+      - redis
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RULE_FILE_PATH: /app/rule.json  # 컨테이너 내 위치
+    ports:
+      - "8081:8081"
+
+  profile-detect-service:
+    build:
+      context: ./profile-detect-service
+      dockerfile: Dockerfile
+    depends_on:
+      - kafka
+      - mysql
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: fds_db
+      MYSQL_USER: fds_user
+      MYSQL_PASSWORD: fds_password
+    ports:
+      - "8082:8082"
+
+  ingestor:
+    build:
+      context: ./ingestor
+      dockerfile: Dockerfile
+    depends_on:
+      - kafka
+      - rule-service
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      RULE_SERVICE_URL: http://rule-service:8081
+    ports:
+      - "8080:8080"
+
+volumes:
+  mysql-data:
