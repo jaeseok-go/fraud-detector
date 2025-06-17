@@ -15,7 +15,7 @@
 
 ---
 
-## 📦 2. ingestor
+## 📦 2. rule-router
 
 - **역할**: 외부 요청을 수신하고, 거래 처리 흐름을 제어
 - **실행 위치**: Docker network 내부
@@ -59,19 +59,16 @@
 
 ## 🧭 시스템 흐름 요약
 
-```plaintext
-[simulator] ─▶ [ingestor] ───────────────────▶ [rule-service]
-                   └─▶ Kafka(fds.transactions)
-                            │
-                            └─▶ [profile-detect-service] 
-                                           │
-                                           └─▶ [rule-service]
-```
+### 룰 타입이 차단인 경우
+![blocking_flow](./image/blocking_flow.png)
+
+### 룰 타입이 차단이 아닌 경우
+![nonblocking_flow](./image/nonblocking_flow.png)
 
 ---
 
 ## ⚖ Blocking / Non-Blocking 처리
-- Ingestor는 거래 수신 후 rule-service에 blocking 여부 질의
+- rule-router는 거래 수신 후 rule-service에 blocking 여부 질의
 - 룰에 따라 `고위험 거래는 blocking`, `일반 거래는 non-blocking`으로 분기
 - Blocking: profile-detect-service 호출 후 응답 반환
 - Non-Blocking: Kafka(`fds.transactions`) 발행 후 비동기 처리
